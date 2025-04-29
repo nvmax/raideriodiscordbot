@@ -84,15 +84,35 @@ class CharacterLookupModal(Modal):
 
             # Add class icon as author
             class_name = character_data['class'].lower()
-            class_icon_url = f"https://wow.zamimg.com/images/wow/icons/large/classicon_{class_name}.jpg"
+            # Format class name for URL - replace spaces with empty string and remove special characters
+            formatted_class_name = class_name.replace(' ', '').replace("'", "").replace("-", "")
+            logger.info(f"Using class name for icon URL: {formatted_class_name}")
+            class_icon_url = f"https://wow.zamimg.com/images/wow/icons/large/classicon_{formatted_class_name}.jpg"
+
+            # Set author with name only first, then try to add icon_url
             main_embed.set_author(
-                name=f"{character_data['active_spec_name']} {character_data['class']}",
-                icon_url=class_icon_url
+                name=f"{character_data['active_spec_name']} {character_data['class']}"
             )
+
+            # Try to set icon_url separately with error handling
+            try:
+                main_embed.set_author(
+                    name=f"{character_data['active_spec_name']} {character_data['class']}",
+                    icon_url=class_icon_url
+                )
+                logger.info(f"Successfully set class icon URL: {class_icon_url}")
+            except Exception as e:
+                logger.error(f"Failed to set class icon URL: {e}")
+                # Continue without the icon
 
             # Add character thumbnail
             if 'thumbnail_url' in character_data:
-                main_embed.set_thumbnail(url=character_data['thumbnail_url'])
+                try:
+                    main_embed.set_thumbnail(url=character_data['thumbnail_url'])
+                    logger.info(f"Successfully set thumbnail URL: {character_data['thumbnail_url']}")
+                except Exception as e:
+                    logger.error(f"Failed to set thumbnail URL: {e}")
+                    # Continue without the thumbnail
 
             # Add basic character info
             main_embed.add_field(name="Class", value=character_data['class'], inline=True)
@@ -298,17 +318,27 @@ class CharacterLookupModal(Modal):
                 )
 
             # Add last updated info
+            footer_text = "Data provided by Raider.io"
             if 'last_crawled_at' in character_data:
-                last_updated = dateutil.parser.parse(character_data['last_crawled_at'])
+                try:
+                    last_updated = dateutil.parser.parse(character_data['last_crawled_at'])
+                    footer_text = f"Data provided by Raider.io • Last updated: {last_updated.strftime('%Y-%m-%d %H:%M')} UTC"
+                except Exception as e:
+                    logger.error(f"Failed to parse last_crawled_at date: {e}")
+
+            # Set footer with text only first
+            main_embed.set_footer(text=footer_text)
+
+            # Try to add icon_url separately with error handling
+            try:
                 main_embed.set_footer(
-                    text=f"Data provided by Raider.io • Last updated: {last_updated.strftime('%Y-%m-%d %H:%M')} UTC",
+                    text=footer_text,
                     icon_url="https://cdnassets.raider.io/images/brand/Icon_Light_32.png"
                 )
-            else:
-                main_embed.set_footer(
-                    text="Data provided by Raider.io",
-                    icon_url="https://cdnassets.raider.io/images/brand/Icon_Light_32.png"
-                )
+                logger.info("Successfully set footer icon URL")
+            except Exception as e:
+                logger.error(f"Failed to set footer icon URL: {e}")
+                # Continue without the icon
 
             # Send the main embed
             await interaction.followup.send(embeds=[main_embed])
